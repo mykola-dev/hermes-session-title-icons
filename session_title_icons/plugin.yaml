@@ -1,0 +1,27 @@
+manifest_version: 2
+name: session-title-icons
+label: Session title icons (experimental)
+kind: standalone
+version: 0.2.0
+requires_hermes: "==0.22.5"
+description: >-
+  Add a semantic Unicode emoji prefix to stored session titles after a configurable
+  delay, or batch the last N sessions on explicit request. Titles only are sent to
+  the host model. No Telegram custom icon actions. Linux single-owner profile only.
+provides_hooks:
+  - on_session_start
+provides_tools:
+  - session_title_icons
+config_schema:
+  model_consent:
+    type: bool
+    default: false
+    description: Allow title-only model calls and native session renames.
+  single_owner_profile:
+    type: bool
+    default: false
+    description: Confirm this profile belongs to one trusted human; not a shared gateway.
+  delay_seconds:
+    type: int
+    default: 60
+    description: Delay after the first session hook; 0..3600 seconds. No unnamed-session retry.

@@ -1,0 +1,2 @@
+# Preserve upstream Unicode bytes: unicode_emoji.py verifies their SHA-256.
+/session_title_icons/data/emoji-test.txt -text

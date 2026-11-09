@@ -1,0 +1,7 @@
+{
+  "hermes_version": "0.22.5",
+  "hermes_commit": "bf0203a794a07aac3ff764972ab9087baa4e4f4e",
+  "image": "nousresearch/hermes-agent@sha256:9c5561579f3ffdf333401797094ac3a743738d6c25d40f4331c7bf77b694238d",
+  "image_id": "sha256:49b70739d2e8b4206fabf8b089f88337db73f8edaccb93e64b0836694ef10a03",
+  "platform": "linux/amd64"
+}
