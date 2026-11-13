@@ -2,8 +2,8 @@ manifest_version: 2
 name: session-title-icons
 label: Session title icons (experimental)
 kind: standalone
-version: 0.2.0
-requires_hermes: "==0.22.5"
+version: 0.2.2
+requires_hermes: ">=0.23.1"
 description: >-
   Add a semantic Unicode emoji prefix to stored session titles after a configurable
   delay, or batch the last N sessions on explicit request. Titles only are sent to

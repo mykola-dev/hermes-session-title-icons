@@ -3,7 +3,7 @@ import math
 
 from .engine import Engine
 from .queue import Queue
-from .runtime import Resident
+from .runtime import Resident, model_profile_scope
 from .selector import Selector
 from .store import HermesStore
 from .tools import DESCRIPTION, SCHEMA, Tools
@@ -46,7 +46,8 @@ def register(ctx):
                       is_emoji=emoji.is_emoji, first_grapheme=emoji.first,
                       sanitize=SessionDB.sanitize_title, consent=True)
 
-    resident = Resident(queue, engine_factory, profile, enabled)
+    resident = Resident(queue, engine_factory, profile, enabled,
+                        scope_factory=lambda: model_profile_scope(home))
     ctx.on_unload(resident.stop)
     resident.start()
 

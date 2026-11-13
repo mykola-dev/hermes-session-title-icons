@@ -142,6 +142,18 @@ class EngineTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result['error'], 1)
         self.assertEqual(result['updated'], 1)
 
+    async def test_failure_diagnostics_never_log_exception_or_title(self):
+        async def select(title):
+            raise RuntimeError('PRIVATE credential and title: ' + title)
+        self.engine.select = select
+        with self.assertLogs('session_title_icons.engine', level='WARNING') as logs:
+            self.assertEqual(await self.engine.decorate('owner', '1'), Outcome.ERROR)
+        text = '\n'.join(logs.output)
+        self.assertIn('stage=select category=RuntimeError', text)
+        self.assertNotIn('PRIVATE', text)
+        self.assertNotIn('Title 1', text)
+        self.assertEqual(self.store.writes, 0)
+
     async def test_limit_validation(self):
         for limit in (0, 201, True, '30'):
             with self.assertRaises(ValueError):

@@ -1,13 +1,32 @@
 """A single gateway-resident queue consumer; managed workers only enqueue IDs."""
 import asyncio
+import contextvars
 import threading
 import time
+from contextlib import contextmanager, nullcontext
+from pathlib import Path
+
+
+@contextmanager
+def model_profile_scope(home):
+    """Let the host bind its launch-profile secrets, without inheriting a caller.
+
+    Never copy a user turn's context or read provider credentials ourselves.
+    Rebuild the host scope per job so rotations/reloads are not frozen at startup.
+    """
+    from tui_gateway.launch_profile_policy import launch_profile_runtime_scope
+    from hermes_constants import get_process_hermes_home
+    if Path(home).resolve() != Path(get_process_hermes_home()).resolve():
+        raise PermissionError('profile_mismatch')
+    with launch_profile_runtime_scope(home):
+        yield
 
 
 class Resident:
-    def __init__(self, queue, engine_factory, profile, allowed):
+    def __init__(self, queue, engine_factory, profile, allowed, *, scope_factory=nullcontext):
         self.queue, self.engine_factory = queue, engine_factory
         self.profile, self.allowed = profile, allowed
+        self.scope_factory = scope_factory
         self.stopped = threading.Event()
         self.loop = self.task = self.thread = self.lock_file = None
 
@@ -25,7 +44,8 @@ class Resident:
             self.lock_file.close()
             self.lock_file = None
             return False
-        self.thread = threading.Thread(target=self._main, name='session-title-icons', daemon=True)
+        self.thread = threading.Thread(target=contextvars.Context().run, args=(self._main,),
+                                       name='session-title-icons', daemon=True)
         self.thread.start()
         return True
 
@@ -67,15 +87,16 @@ class Resident:
     async def _process(self, engine, job):
         result = {'error': 'job_failed'}
         try:
-            if time.time() - job['due'] > 300:
-                result = {'skipped': 1, 'reason': 'expired'}
-            elif not self.allowed():
-                result = {'skipped': 1, 'reason': 'disabled'}
-            elif job['kind'] == 'auto':
-                outcome = await engine.decorate(self.profile, job['session_id'])
-                result = {outcome.value: 1}
-            else:
-                result = await engine.recent(self.profile, job['limit_n'])
+            with self.scope_factory():
+                if time.time() - job['due'] > 300:
+                    result = {'skipped': 1, 'reason': 'expired'}
+                elif not self.allowed():
+                    result = {'skipped': 1, 'reason': 'disabled'}
+                elif job['kind'] == 'auto':
+                    outcome = await engine.decorate(self.profile, job['session_id'])
+                    result = {outcome.value: 1}
+                else:
+                    result = await engine.recent(self.profile, job['limit_n'])
         except asyncio.CancelledError:
             result = {'error': 'interrupted_outcome_unknown'}
             raise

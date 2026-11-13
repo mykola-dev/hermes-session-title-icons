@@ -1,6 +1,7 @@
 """Real pinned storage/facade/loader, synthetic models and mutation transports."""
 import asyncio
 import contextlib
+import contextvars
 import json
 import tempfile
 import threading
@@ -219,7 +220,7 @@ class StoreTests(unittest.IsolatedAsyncioTestCase):
     def authority(self):
         from gateway.config import Platform
         from gateway.session_authority import SessionAuthority, LiveSession
-        from gateway.session_contract import Principal
+        from gateway.session_contract import SessionActor as Principal
         from hermes_state_runtime import begin_runtime_epoch
         epoch = begin_runtime_epoch(self.db, instance_id='isolated-authority')
         authority = SessionAuthority(SimpleNamespace(_draining=False), profile_id=str(self.home),
@@ -271,7 +272,8 @@ class StoreTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.db.get_session_title('synthetic'), '💾 Backups')
 
     async def test_desktop_basic_bootstrap_through_native_authority_commit(self):
-        from gateway.session_contract import Principal, SessionRef
+        from gateway.session_contract import SessionRef
+        from gateway.session_contract import SessionActor as Principal
         from gateway.session_local_migration import bind_native_transport, unbind_native_transport
         from gateway.session_mutations import mutate_session
         authority, _ = self.authority()
@@ -508,9 +510,14 @@ class ResidentTests(unittest.TestCase):
 
     def test_resident_outlives_hook_and_consumes_queue(self):
         done = threading.Event()
+        caller = contextvars.ContextVar('synthetic_caller', default=None)
+        token = caller.set('request-identity-must-not-leak')
+        self.addCleanup(caller.reset, token)
         class FakeEngine:
             consent = True
             async def decorate(self, profile, sid):
+                if caller.get() is not None:
+                    raise AssertionError('Resident inherited a caller identity')
                 done.set()
                 return Outcome.UPDATED
             async def close(self):
@@ -539,6 +546,7 @@ class LoaderTests(unittest.TestCase):
         from session_title_icons.plugin import register
         with tempfile.TemporaryDirectory() as tmp, contextlib.ExitStack() as stack:
             home = Path(tmp)
+            (home / '.env').write_text('HERMES_CODEX_BASE_URL=https://synthetic.invalid\n')
             db = SessionDB(home / 'state.db')
             stack.callback(db.close)
             db.create_session('hook-session', 'cli')
@@ -547,6 +555,8 @@ class LoaderTests(unittest.TestCase):
             committed = threading.Event()
             sent = []
             async def model(**kwargs):
+                from agent.secret_scope import get_secret
+                self.assertEqual(get_secret('HERMES_CODEX_BASE_URL'), 'https://synthetic.invalid')
                 sent.append(kwargs)
                 completion = SimpleNamespace(model='synthetic', choices=[SimpleNamespace(
                     message=SimpleNamespace(content='{"emoji":"💾"}'))], usage=SimpleNamespace(
@@ -566,6 +576,8 @@ class LoaderTests(unittest.TestCase):
                 committed.set()
                 return result
             with patch('hermes_constants.get_hermes_home', return_value=home), \
+                    patch('hermes_constants.get_process_hermes_home', return_value=home), \
+                    patch('agent.secret_scope._MULTIPLEX_ACTIVE', True), \
                     patch('hermes_cli.gateway_runtime.gateway_profile_home', side_effect=lambda h: h), \
                     patch.object(HermesStore, '_rpc', rpc):
                 try:

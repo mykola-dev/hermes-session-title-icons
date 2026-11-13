@@ -3,7 +3,7 @@
 Add a meaningful Unicode emoji to a Hermes chat title — automatically or in a
 confirmed batch. **The existing title text stays intact.**
 
-**v0.2.0 · Hermes 0.22.5 · Linux gateway · Default profile only · Experimental**
+**v0.2.2 · Hermes >=0.23.1 · Linux gateway · Default profile only · Experimental**
 
 ```text
 Docker backups       → 💾 Docker backups
@@ -30,8 +30,9 @@ platform-specific custom icons.
 
 ## Install
 
-Requires **Hermes 0.22.5**, a persistent Linux gateway and a **trusted single-owner
-default profile**. Other versions and shared/multi-user profiles are unsupported.
+Requires **Hermes >=0.23.1**, a persistent Linux gateway and a **trusted single-owner
+default profile**. Tested on 0.23.1; the minimum-version constraint is
+not a guarantee of future compatibility. Shared/multi-user profiles are unsupported.
 
 1. Copy the contents of this repository's **`session_title_icons/`** directory to
    `$HERMES_HOME/plugins/session-title-icons/` (usually
@@ -110,12 +111,21 @@ Windows + Docker Desktop, with the pinned image in `baseline.json` available:
 pwsh -File ./scripts/Test-Local.ps1
 ```
 
-**89 tests passed** after the repository cleanup, covering once-only
+**95 tests passed on Hermes 0.23.1**, covering once-only
 confirmation, cross-client status, and a 50-session batch through real Hermes
 picker/storage with a synthetic selector. Tests use an isolated container and
 disposable data, without production credentials or cloud model calls. They are
 not proof of every client's live approval UI, and no audited live batch
-completion is claimed.
+completion is claimed. Profile-scope regression tests exercise the host's real
+fail-closed secret reader under multiplex mode, without real credentials.
+
+### Upgrade from v0.2.0 / v0.2.1
+
+Replace the complete plugin directory contents, not only the manifest, then restart
+the idle gateway. v0.2.2 fixes background model calls failing with
+`UnscopedSecretError` after the host activates profile multiplexing. It uses the
+host's launch-profile runtime scope for each job; it does not disable the secret
+guard or change authentication. Existing failed/unknown jobs are not replayed.
 
 See [architecture, access model and limits](docs/SESSION-TITLE-ICONS.md) and
 [test isolation](docs/TESTING.md).

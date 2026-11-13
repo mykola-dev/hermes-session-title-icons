@@ -1,7 +1,7 @@
 {
-  "hermes_version": "0.22.5",
-  "hermes_commit": "bf0203a794a07aac3ff764972ab9087baa4e4f4e",
-  "image": "nousresearch/hermes-agent@sha256:9c5561579f3ffdf333401797094ac3a743738d6c25d40f4331c7bf77b694238d",
-  "image_id": "sha256:49b70739d2e8b4206fabf8b089f88337db73f8edaccb93e64b0836694ef10a03",
+  "hermes_version": "0.23.1",
+  "hermes_commit": "3b421578588243f920886e6fe79a6faa87ea026e",
+  "image": "nousresearch/hermes-agent@sha256:276d44685c65c0cb2a25f190b63c65c8906f9dc76486fb1c05ae71b5826bda08",
+  "image_id": "sha256:ed43b1c44a722eff23041b7db2f3866ac80edc33650104a684837830d3798cd3",
   "platform": "linux/amd64"
 }

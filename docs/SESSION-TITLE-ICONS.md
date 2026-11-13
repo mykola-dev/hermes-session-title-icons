@@ -1,6 +1,8 @@
 # Architecture, access model and limits
 
-Current release: **v0.2.0** for Hermes 0.22.5. See [README](../README.md) for
+Current release: **v0.2.2**, requiring Hermes >=0.23.1; tested on 0.23.1.
+Newer versions still need compatibility testing because the plugin uses native
+gateway contracts. See [README](../README.md) for
 install, configuration and privacy summary.
 
 This feature means an emoji prefix in a stored session title, NOT a
@@ -32,6 +34,12 @@ requires confirmation that the profile has one trusted human owner.
 - `plugin.py`: `on_session_start` only enqueues an ID and due time. No model work
   or timer runs in the hook callback. Managed workers never start the consumer.
 - `runtime.py`: one locked gateway-resident background loop, canceled on unload.
+  Starts in an empty ContextVar context, never a copy of a requesting turn. Each
+  job enters the host's launch-profile runtime scope, after checking that its
+  fixed home matches the process home. The host binds and resets home, secret
+  scope and terminal policy; the plugin never handles provider credential values.
+  Scopes are rebuilt per job rather than frozen at startup. Foreign homes are
+  rejected; multiplex mode is never disabled to bypass an unscoped read.
 - `queue.py`: durable deduplication in the plugin's own
   `<HERMES_HOME>/session-title-icons/jobs.sqlite3`; NOT Hermes' session DB. No
   titles, messages or tokens are saved here. Claimed jobs interrupted by restart
@@ -75,6 +83,8 @@ confirmation for every batch.
 - New job status is profile-scoped, so other clients in the same default profile
   can inspect it. Old jobs are not migrated or replayed.
 - No core edits, host method wrapping, log observers or log parsing are used.
+- Failure diagnostics contain only fixed stage/category labels and code function/
+  line coordinates, never exception text, titles, IDs, messages or credentials.
 
 Anyone Hermes admits to the trusted default profile can request and confirm a
 batch and read its job counts. Do not deploy this policy on a shared or untrusted

@@ -8,6 +8,8 @@ explicitly owner-accepted best-effort contract, NOT atomic title CAS.
 from __future__ import annotations
 
 import asyncio
+import logging
+import traceback
 from dataclasses import dataclass
 from enum import Enum
 from typing import Awaitable, Callable, Protocol
@@ -99,6 +101,7 @@ class Engine:
         if self.closed or not self.consent or key in self.busy:
             return Outcome.SKIPPED
         self.busy.add(key)
+        stage = 'read'
         try:
             async with self.semaphore, asyncio.timeout(self.timeout):
                 before = await self.store.read(profile, session_id)
@@ -108,19 +111,31 @@ class Engine:
                     return Outcome.SKIPPED
                 # Only the current title crosses the model boundary. Treat it as
                 # untrusted data in the selector; output must be exactly one emoji.
+                stage = 'select'
                 icon = await self.select(before.title)
                 if not self.is_emoji(icon) or self.first_grapheme(icon) != icon:
                     return Outcome.ERROR
                 title = f'{icon} {before.title}'
                 # Do not let host sanitation split ZWJ emoji, normalize a manual
                 # name, or truncate its text. No restricted selection catalog.
+                stage = 'sanitize'
                 if self.sanitize(title) != title:
                     return Outcome.SKIPPED
                 if self.closed or not self.consent:
                     return Outcome.SKIPPED
+                stage = 'rename'
                 return (Outcome.UPDATED if await self.store.rename_if_unchanged(before, title)
                         else Outcome.STALE)
-        except Exception:
+        except Exception as exc:
+            category = next((kind.__name__ for kind in
+                             (TimeoutError, ImportError, AttributeError, TypeError,
+                              ValueError, PermissionError, RuntimeError)
+                             if isinstance(exc, kind)), 'Exception')
+            frames = traceback.extract_tb(exc.__traceback__)
+            # Code coordinates only; never source lines, exception text or locals.
+            origin = ','.join(f'{frame.name}:{frame.lineno}' for frame in frames[-4:])
+            logging.getLogger(__name__).warning(
+                'session_title_failed stage=%s category=%s origin=%s', stage, category, origin)
             # Do not log model output, titles, credentials or message contents.
             # CancelledError is BaseException and must propagate to shutdown.
             return Outcome.ERROR
